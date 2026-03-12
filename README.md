@@ -1,6 +1,6 @@
-# RustyBundle
+# WhatSpace
 
-RustyBundle is a minimal Delay-Tolerant Networking (DTN) middleware implemented in Rust.  
+WhatSpace is a minimal Delay-Tolerant Networking (DTN) middleware implemented in Rust.  
 It simulates distributed DTN nodes based on the Store–Carry–Forward model.
 
 The project focuses on modular system design, persistent storage, asynchronous networking, and distributed coordination between independent nodes.
@@ -130,7 +130,7 @@ Available commands:
 The project follows a modular architecture where each feature is isolated in its own module.
 
 ```
-rustybundle/
+whatspace/
 ├── src/
 │   ├── main.rs
 │   ├── config/
