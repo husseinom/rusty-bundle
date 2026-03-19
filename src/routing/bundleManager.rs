@@ -1,6 +1,5 @@
 use uuid::Uuid;
-use crate::routing::model::{Bundle, MsgStatus, BundleKind};
-use crate::storage::{self, StorageLayer};
+use crate::routing::model::{Bundle, BundleKind};
 
 pub struct BundleManager {
     pub node_id: Uuid,
@@ -10,7 +9,10 @@ pub struct BundleManager {
 impl BundleManager {
      // Function to get bundles stored at the node, used by the engine to get the summary vector
 
-    pub fn new (node_id: Uuid, storage : StorageLayer) -> Self {
+    pub fn new (node_id: Uuid,
+        //storage : StorageLayer
+        )
+         -> Self {
         BundleManager { node_id, storage }
     }
 
@@ -19,12 +21,12 @@ impl BundleManager {
     }
 
     // Function to get a bundle by its id, used by the SCF to fetch the full bundle before forwarding
-    pub fn get(&self, bundle_id: &String) -> Option<Bundle> {
+    pub fn get(&self, bundle_id: Uuid) -> Option<Bundle> {
         self.storage.get_bundle(bundle_id)
     }
 
     // Function to delete a bundle by its id, used by the SCF to remove bundles that have been forwarded or expired
-    pub fn delete_bundle(&mut self, bundle_id: String) -> bool {
+    pub fn delete_bundle(&mut self, bundle_id: Uuid) -> bool {
         self.storage.delete_bundle(bundle_id)
     }
 
@@ -49,7 +51,8 @@ impl BundleManager {
         // Save the ACK to propagate it to other peers
         // Delete the corresponding local Data bundle
         if let BundleKind::Ack { ack_bundle_id } = &ack.kind {
-            self.storage.delete_bundle(ack_bundle_id) && self.storage.save_bundle(ack)
+            self.storage.delete_bundle(*ack_bundle_id);
+            self.storage.save_bundle(ack) // always save ack so it continues to propagate
         }
         else {
             false

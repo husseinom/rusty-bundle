@@ -5,8 +5,7 @@ pub mod bundleManager;
 pub mod model; // this line tells rust to include the model.rs file as a submodule
 pub mod scf;
 
-#[cfg(test)]
-mod routing_test;
+
 
 pub use engine::RoutingEngine;
 pub use epidemic::NetworkGraph;

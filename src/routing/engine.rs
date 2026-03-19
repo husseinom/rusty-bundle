@@ -1,10 +1,12 @@
+use crate::routing::model::BundleKind;
+use super::bundleManager::BundleManager;
 use super::epidemic::NetworkGraph;
+use super::model::Bundle;
+use std::time::Duration;
 use pathfinding::directed::dijkstra::dijkstra;
 use uuid::Uuid;
-use super::bundleManager::BundleManager;
-use super::model::Bundle;
-use chrono::Utc;
 
+// TODO : Add a get_node for the network layer
 
 pub struct RoutingEngine {
     pub node_id: Uuid,
@@ -39,50 +41,69 @@ impl RoutingEngine {
     }
 
     // Main routing decision
-    pub fn route_bundle(
+    pub async fn route_bundle(
         &self,
-        bundle: &Bundle,
-        bundle_manager: &BundleManager,
-        network: &NetworkLayer,
+        bundle: &mut Bundle,
+        bundle_manager: &mut BundleManager,
+        //network: &NetworkLayer,
+        retry_interval : Duration
     ) {
-        // Check if we are the destination
+
+        if matches!(bundle.kind, BundleKind::Ack { .. }) {
+
+            if (bundle.source.id == self.node_id) {
+                bundle_manager.delete_bundle(bundle.id);
+                return;
+            }
+
+            bundle_manager.handle_incoming_ack(bundle);
+            // Call the network layer
+            // for peer in network.get_connected_peers() {
+                //     network.send_bundle(peer, bundle);
+                // }
+            return;
+        }
+
+
+        //  Check if we are the destination
         if self.node_id == bundle.destination.id {
-            // TODO: update bundle status to delivered
-            // wainting for issue #26
+            bundle.shipment_status = super::model::MsgStatus::Delivered;
+            let ack = Bundle::new_ack(bundle);
+            bundle_manager.save_bundle(&ack);
+            bundle_manager.delete_bundle(bundle.id);
+            // Call the network layer
+            // for peer in network.get_connected_peers() {
+            //     network.send_bundle(peer, &ack);
+            // }
             return;
         }
 
         // Check if TTL expired
-        let elapsed = Utc::now() - bundle.timestamp;
-        if elapsed.num_seconds() as u64 > bundle.ttl {
-            // issue #27
+        if bundle.is_expired() {
+            bundle.shipment_status = super::model::MsgStatus::Expired;
             bundle_manager.delete_bundle(bundle.id);
             return;
         }
 
-        // Find next hop using Dijkstra
-        let next_hop = self.find_next_hop(bundle.destination.id);
-        if next_hop.is_none() {
-            // waiting for issue #22
+        // Find next hop if not we stay here
+        let Some(next_hop) = self.find_next_hop(bundle.destination.id) else {
+            bundle.shipment_status = super::model::MsgStatus::Pending;
             bundle_manager.save_bundle(bundle);
+            self.forward_loop(bundle_manager, retry_interval).await;
             return;
-        }
+        };
 
-        // Get local summary vector
-        // issue #27
+        // next hop found and we want to send to it missing bundles
+        bundle.shipment_status = super::model::MsgStatus::InTransit;
         let local_sv = self.get_summary_vector(bundle_manager);
+        // let peer_sv = network.get_peer_summary_vector(next_hop);
+        // let to_forward = self.anti_entropy(&local_sv, &peer_sv);
+        // call for network layer
+        // for id in  to_forward {
+        //     if let Some(b) = bundle_manager.get(id) {
+        //         network.send_bundle(next_hop, &b)
+        //     }
+        // }
 
-        // Get peer summary vector
-        // issue #28
-        let peer_sv = network.get_peer_summary_vector(next_hop.unwrap());
-
-        // waiting for issue #24
-        let to_send = self.anti_entropy(&local_sv, &peer_sv);
-
-        // Check for duplicates before sending
-        // waiting for issue #25 but already taken into consideration in the anti_entropy function
-
-        // issue #28
-        network.send_bundles(next_hop.unwrap(), to_send);
     }
 }
