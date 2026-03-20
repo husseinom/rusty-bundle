@@ -52,7 +52,6 @@ pub fn connect_to_server(node: &Node) -> Option<TcpStream> {
 
 //not sure about this fuction 
 // to be corrected 
-// i hope this is correct 
 pub fn connect_to_peers(node: &Node,nodes_registry: &HashMap<Uuid, Node>,) -> Result<Vec<(Uuid, TcpStream)>, String> {
 
     // Verify that the registry is not empty
@@ -61,7 +60,7 @@ pub fn connect_to_peers(node: &Node,nodes_registry: &HashMap<Uuid, Node>,) -> Re
     }
 
     let mut connections = Vec::new();
-    let mut errors = Vec::new(); // on garde une trace des erreurs
+    let mut errors = Vec::new(); 
     //todo: if this not necessary we can delete it 
 
     // Connect to all peers in the local node's peers list
@@ -93,7 +92,7 @@ pub fn connect_to_peers(node: &Node,nodes_registry: &HashMap<Uuid, Node>,) -> Re
                             peer_id, address, e
                         );
                         println!("[Client] {}", msg);
-                        errors.push(msg); // on note l'erreur mais on continue
+                        errors.push(msg); // we keep the error and continue trying to connect to other peers
                     }
                 }
             }
