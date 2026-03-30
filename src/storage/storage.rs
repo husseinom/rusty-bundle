@@ -12,13 +12,13 @@ impl StorageLayer for JsonFileStorage{
     // Duplicate detection logic 
     fn save_bundle(&mut self, bundle: &Bundle) -> bool {
         //check if the bundle ID already exists in the shared file bundle.json
-        if bundles.iter().any(|b| b.id == bundle.id) {
+        if self.bundles.iter().any(|b| b.id == bundle.id) {
             eprintln!("{}", StorageError::AlreadyExists(bundle.id.to_string()));
             return false;
         }
 
         // Add the new bundle to the array
-        bundles.push(bundle.clone());
+        self.bundles.push(bundle.clone());
 
         //Save the updates to the JSON file
         match self.save_to_file() {
