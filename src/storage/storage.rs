@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
  
 use crate::routing::model::{Bundle};
 use super::storage_interface::{StorageLayer, StorageError};
+use crate::storage::json_storage::JsonFileStorage;
 
 
 // implementation of StorageLayer
@@ -11,9 +12,17 @@ impl StorageLayer for JsonFileStorage{
     // Issue #11
     // Duplicate detection logic 
     fn save_bundle(&mut self, bundle: &Bundle) -> bool {
+        // Check if we have reached storage capacity
+        if self.bundles.len() >= self.capacity {
+            let err= StorageError::StorageFull(bundle.id.to_string());
+            eprintln!("{}", err);
+            return false; // Storage is full, reject new bundle and abort saving
+        }
+
         //check if the bundle ID already exists in the shared file bundle.json
         if self.bundles.iter().any(|b| b.id == bundle.id) {
-            eprintln!("{}", StorageError::AlreadyExists(bundle.id.to_string()));
+            let err = StorageError::AlreadyExists(bundle.id.to_string());
+            eprintln!("{}", err);
             return false;
         }
 
