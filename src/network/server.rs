@@ -34,7 +34,7 @@ pub enum ServerRequest {
 #[serde(tag = "type", content = "data")]
 pub enum ServerResponse {
     Ok,
-    Peers(HashMap<u32, String>), // key=port, value=address
+    Peers(Vec<PeerRecord>), // List of connected peer records
     Error(String),
 }
 
@@ -144,11 +144,14 @@ pub fn get_all_peers(registry: &PeerRegistry) -> Vec<PeerRecord> {
     }
 }
 
-pub fn get_connected_peers(registry: &PeerRegistry) -> Vec<PeerRecord> {
+pub fn get_connected_peers(registry: &PeerRegistry, requested_ids: &[Uuid]) -> Vec<PeerRecord> {
     match registry.lock() {
         Ok(map) => map
             .values()
-            .filter(|record| record.status == ConnectionStatus::Connected)
+            .filter(|record| {
+                record.status == ConnectionStatus::Connected
+                    && requested_ids.contains(&record.node.id)
+            })
             .cloned()
             .collect(),
         Err(_) => Vec::new(),

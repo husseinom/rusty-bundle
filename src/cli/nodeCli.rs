@@ -4,7 +4,7 @@ enum NodeCommands {
     /// Register the node in the server registry
     Register,
     /// Stop the node server
-    GetPeers {
+    GetconnectedPeers {
         /// Optional list of peer IDs to retrieve (comma-separated)
         #[arg(short, long)]
         ids: Option<String>,
