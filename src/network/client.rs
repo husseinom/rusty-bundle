@@ -123,6 +123,8 @@ pub fn connect_to_peers(node: &Node,nodes_registry: &HashMap<Uuid, Node>,) -> Re
     }
 
     Ok(connections)
+}
+
 pub fn send_bundle(bundle: ProtobufBundle, peers: Vec<Node>) {
 
     // convert the bundle into the protobuf generated bundle
