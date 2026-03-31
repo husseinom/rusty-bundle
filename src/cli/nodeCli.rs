@@ -10,33 +10,44 @@ struct Cli {
 }
 
 enum NodeCommands {
+    
+    /// List all nodes created in the demo
+    All,
     /// Start the node and register it with the server
     Start {
-        /// IP address this node listens on
-        #[arg(short, long)]
-        address: String,
-
-        /// Port this node listens on
-        #[arg(short, long)]
-        port: u16,
+        /// Name of the node to start
+        name: String,
 
         /// Server address to register with (ip:port)
         #[arg(short, long)]
         server: String,
     },
     /// Stop the node server
-    Stop,
+    Stop{
+        /// Name of the node to stop
+        name: String,
+    },
     
     /// Get the status of the node
-    Status,
+    Status{
+        /// Name of the node to check status for
+        name: String,
+    },
 
-    /// Manage known peers
+    /// Manage peers of a node
     Peers {
+        /// Name of the node
+        name: String,
+
         #[command(subcommand)]
         command: PeerCommands,
     },
 
     Send {
+        /// Name of the sender node
+        #[arg(long)]
+        from: String,
+
         /// name of the destination node
         #[arg(long)]
         to: String,
@@ -48,6 +59,12 @@ enum NodeCommands {
         /// Time-to-live in seconds
         #[arg(long)]
         ttl: u64,
+    },
+
+    #[cfg(feature = "debug")]
+    Debug {
+        /// Name of the node to dump, or all if omitted
+        name: Option<String>,
     },
 
 }
