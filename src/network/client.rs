@@ -6,11 +6,13 @@ use crate::network::protobuf::{serialize,deserialize};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use uuid::Uuid;
+use std::time::Duration;
+use std::thread;
 
 pub fn connect_to_server(node: &Node) -> bool {
     let address = format!("{}:{}", node.address, node.port);
-    match TcpStream::connect(&address) {
-        Ok(mut stream) => {
+    match connect_with_retry(&address, 3, 2) {
+        Some(mut stream) => {
             println!("Connecté à {}", address);
 
             let message =
@@ -27,22 +29,53 @@ pub fn connect_to_server(node: &Node) -> bool {
                 }
             }
         }
-        Err(e) => {
-            println!("Erreur de connexion: {}", e);
+        None => {
+            println!("Erreur: Impossible de se connecter au serveur après plusieurs tentatives.");
             false
         }
     }
 }
 
+//Connection Retry & Failure Handling
+// A helper function that attempts to establish a TCP connection multiple times 
+// with a delay between attempts. This prevents the node from giving up immediately 
+// if the target peer is temporarily offline or experiencing high latency.
+fn connect_with_retry(address: &str, max_retries: u32, delay_secs: u64) -> Option<TcpStream> {
+    for attempt in 1..=max_retries {
+        match TcpStream::connect(address) {
+            Ok(stream) => {
+                // If successful, return the open connection immediately
+                println!("Network: Successfully connected to {} (Attempt {}/{})", address, attempt, max_retries);
+                return Some(stream);
+            }
+            Err(e) => {
+                eprintln!("Network Warning: Connection to {} failed (Attempt {}/{}): {}", address, attempt, max_retries, e);
+                
+                // If we haven't reached the max retries, wait and try again
+                if attempt < max_retries {
+                    println!("Network: Retrying in {} seconds...", delay_secs);
+                    //pause the current thread for the specified delay before the next attempt
+                    //prevents the node from spamming a struggling server with thousands of requests per second
+                    thread::sleep(Duration::from_secs(delay_secs));
+                }
+            }
+        }
+    }
+    
+    //If all attempts fail, we log it and return None instead of crashing
+    eprintln!("Network Error: Exhausted all {} attempts to connect to {}. Node is unreachable.", max_retries, address);
+    None
+}
+
 pub fn connect_to_peer(source: &Node, destination: &Node) -> Option<TcpStream> {
     let addr = format!("{}:{}", destination.address, destination.port);
-    match TcpStream::connect(&addr) {
-        Ok(stream) => {
+    match connect_with_retry(&addr, 3, 2) {
+        Some(stream) => {
             println!("[{}] Connected to peer at {}", source.id, addr);
             Some(stream)
         }
-        Err(e) => {
-            eprintln!("[{}] Failed to connect to {}: {}", source.id, addr, e);
+        None => {
+            eprintln!("[{}] Failed to connect to {} after all retries.", source.id, addr);
             None
         }
     }
@@ -66,10 +99,10 @@ pub fn connect_to_peers(node: &Node) -> Vec<(PeerRecord, TcpStream)> {
 fn request_connected_peers(node: &Node, requested_ids: Vec<Uuid>) -> Vec<PeerRecord> {
     let address = format!("{}:{}", node.address, node.port);
 
-    let mut stream = match TcpStream::connect(&address) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("request_connected_peers failed to connect to server: {}", e);
+    let mut stream = match connect_with_retry(&address, 3, 2) {
+        Some(s) => s,
+        None => {
+            eprintln!("request_connected_peers failed to connect to server: {}", address);
             return Vec::new();
         }
     };

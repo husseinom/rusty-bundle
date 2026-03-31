@@ -1,4 +1,3 @@
-
 use std::fs; // Filesystem manipulation operations
 use std:: path::PathBuf;
 use uuid::Uuid;
@@ -12,10 +11,11 @@ use super::storage_interface::{StorageLayer, StorageError};
 pub struct JsonFileStorage {
     pub storage_dir: PathBuf,
     pub bundles: Vec<Bundle>,
+    pub capacity: usize, //maximum number of bundles this node can store
 }
 
 impl JsonFileStorage {
-    pub fn new(directory: String) -> Self {  // initialisation au demarrage 
+    pub fn new(directory: String, capacity: usize) -> Self {  // initialisation au demarrage 
         let storage_dir = PathBuf::from(&directory);// constructeur prend chemin repertoir et retourne une instance jsonfilestorage 
         // convertit le string en PathBuf qui est un type rust optimisé pour les chemins 
 
@@ -64,7 +64,7 @@ impl JsonFileStorage {
             Vec::new()
         };
         
-        JsonFileStorage { storage_dir, bundles }
+        JsonFileStorage { storage_dir, bundles, capacity }
     }
 
 
