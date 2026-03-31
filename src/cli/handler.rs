@@ -4,16 +4,13 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use crate::cli::nodeCli::{NodeCommands, PeerCommands};
-use crate::network::server::{get_connected_peers, PeerRegistry};
-use crate::routing::bundleManager::BundleManager;
+use crate::network::server::get_connected_peers;
 use crate::routing::engine::RoutingEngine;
 use crate::routing::model::{Bundle, BundleKind, Node};
 use crate::routing::scf::store;
 
 pub struct CliContext {
-    pub registry: PeerRegistry,
     pub engines: HashMap<Uuid, RoutingEngine>,
-    pub managers: HashMap<Uuid, BundleManager>,
     pub retry_interval: Duration,
 }
 
@@ -55,22 +52,53 @@ pub async fn handle_command(command: NodeCommands, nodes: &mut Vec<Node>, ctx: &
 
         NodeCommands::Start { name, server } => {
             let node = find_node(nodes, &name);
-            println!("Starting node {} and registering with server {}...", node.name, server);
-            println!("Node {} ({}) is ready.", node.name, node.id);
+            let engine = ctx
+            .engines
+            .get(&node.id)
+            .expect("No RoutingEngine found for node");
+
+            // Create an owned Server instance sharing the same registry, then run it in background.
+            let server_runner = Server {
+            peer_registry: engine.server.peer_registry.clone(),
+            };
+
+            std::thread::spawn(move || {
+            server_runner.start_server();
+            });
+
+            println!(
+            "Node {} started. Local network server loop launched (requested server: {}).",
+            node.name, server
+            );
         }
 
         NodeCommands::Stop { name } => {
             let node = find_node(nodes, &name);
+            let engine = ctx
+            .engines
+            .get(&node.id)
+            .expect("No RoutingEngine found for node");
+
             println!("Stopping node {}...", node.name);
+
+            // Uses current server API: marks peers disconnected and exits process.
+            disconnect_server(&engine.server.peer_registry);
         }
 
         NodeCommands::Status { name } => {
             let node = find_node(nodes, &name);
-            let stored = ctx.managers.get(&node.id).map(|m| m.all().len()).unwrap_or(0);
-            println!("ID      : {}", node.id);
-            println!("Name    : {}", node.name);
+            let stored = ctx
+            .engines
+            .get(&node.id)
+            .map(|e| e.bundle_manager.all().len())
+            .unwrap_or(0);
+
+
+
+            println!("ID : {}", node.id);
+            println!("Name : {}", node.name);
             println!("Address : {}:{}", node.address, node.port);
-            println!("Peers   : {}", node.peers.len());
+            println!("Peers : {}", node.peers.len());
             println!("Bundles : {}", stored);
         }
 
@@ -85,28 +113,28 @@ pub async fn handle_command(command: NodeCommands, nodes: &mut Vec<Node>, ctx: &
                 ttl,
             );
 
-            let manager = ctx
-                .managers
-                .get_mut(&src.id)
-                .expect("No BundleManager found for source node");
-
-            store(&mut bundle, manager);
-
             let engine = ctx
-                .engines
-                .get(&src.id)
-                .expect("No RoutingEngine found for source node");
+            .engines
+            .get_mut(&src.id)
+            .expect("No RoutingEngine found for source node");
+
+            store(&mut bundle, &mut engine.bundle_manager);
 
             engine
-                .route_bundle(&mut bundle, manager, ctx.retry_interval)
-                .await;
+            .route_bundle(&mut bundle, ctx.retry_interval)
+            .await;
 
             println!("Bundle {} routed from {}.", bundle.id, src.name);
         }
 
         NodeCommands::Peers { name, command } => {
             let node = find_node_mut(nodes, &name);
-            handle_peer_command(command, node, &ctx.registry);
+            let engine = ctx
+            .engines
+            .get(&node.id)
+            .expect("No RoutingEngine found for node");
+
+            handle_peer_command(command, node, engine);        
         }
 
         #[cfg(feature = "debug")]
@@ -122,7 +150,7 @@ pub async fn handle_command(command: NodeCommands, nodes: &mut Vec<Node>, ctx: &
     }
 }
 
-fn handle_peer_command(command: PeerCommands, node: &mut Node, registry: &PeerRegistry) {
+fn handle_peer_command(command: PeerCommands, node: &mut Node, engine: &RoutingEngine) {
     match command {
         PeerCommands::ListPeers => {
             if node.peers.is_empty() {
@@ -141,12 +169,12 @@ fn handle_peer_command(command: PeerCommands, node: &mut Node, registry: &PeerRe
                 .map(|s| Uuid::parse_str(s).expect("Invalid UUID"))
                 .collect();
 
-            let peers = get_connected_peers(registry, &uuids);
+            let peers = get_connected_peers(&engine.server.peer_registry, &uuids);
             println!("Connected peers found: {}", peers.len());
             for p in peers {
                 println!(
-                    "  - {} | {} | {}:{}",
-                    p.node.name, p.node.id, p.node.address, p.node.port
+                " - {} | {} | {}:{}",
+                p.node.name, p.node.id, p.node.address, p.node.port
                 );
             }
         }

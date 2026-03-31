@@ -1,9 +1,12 @@
-use crate::routing::model::BundleKind;
-use super::bundleManager::BundleManager;
 use super::epidemic::NetworkGraph;
 use super::model::Bundle;
-use std::time::Duration;
+use crate::network::server::Server;
+use crate::network::client::send_bundle;
+use crate::routing::bundleManager;
+use crate::routing::model::BundleKind;
 use pathfinding::directed::dijkstra::dijkstra;
+use std::collections::HashMap;
+use std::time::Duration;
 use uuid::Uuid;
 
 // TODO : Add a get_node for the network layer
@@ -11,9 +14,15 @@ use uuid::Uuid;
 pub struct RoutingEngine {
     pub node_id: Uuid,
     pub graph: NetworkGraph,
+    pub server : Server,
+    pub bundle_manager : BundleManager
 }
 
 impl RoutingEngine {
+    pub fn new(node_id : uuid) -> Self{
+        RoutingEngine { node_id: node_id, graph: NetworkGraph::new(), server: Server::new(), bundle_manager: bundleManager::new() }
+    }
+
     // Summary vector management
     pub fn get_summary_vector(&self, bundle_manager: &BundleManager) -> Vec<Uuid> {
         return bundle_manager.get_bundles_from_node(self.node_id); // this function calls the storage layer to get the bundles stored
@@ -44,13 +53,11 @@ impl RoutingEngine {
     pub async fn route_bundle(
         &self,
         bundle: &mut Bundle,
-        bundle_manager: &mut BundleManager,
-        //network: &NetworkLayer,
-        retry_interval : Duration
+        retry_interval: Duration,
     ) {
 
-        if matches!(bundle.kind, BundleKind::Ack { .. }) {
 
+        if matches!(bundle.kind, BundleKind::Ack { .. }) {
             if (bundle.source.id == self.node_id) {
                 bundle_manager.delete_bundle(bundle.id);
                 return;
@@ -58,12 +65,10 @@ impl RoutingEngine {
 
             bundle_manager.handle_incoming_ack(bundle);
             // Call the network layer
-            // for peer in network.get_connected_peers() {
-                //     network.send_bundle(peer, bundle);
-                // }
+            source = get_node(self.node_id);
+            send_bundle(source, bundle.clone());
             return;
         }
-
 
         //  Check if we are the destination
         if self.node_id == bundle.destination.id {
@@ -104,6 +109,5 @@ impl RoutingEngine {
         //         network.send_bundle(next_hop, &b)
         //     }
         // }
-
     }
 }

@@ -9,7 +9,9 @@ struct Cli {
     command: Commands,
 }
 
-enum NodeCommands {
+
+#[derive(Subcommand)]
+pub enum NodeCommands {
     
     /// List all nodes created in the demo
     All,
