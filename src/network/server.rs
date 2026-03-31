@@ -62,7 +62,11 @@ impl Server {
             }
         }
     }
+
+
+
 }
+
 
 pub fn handle_client(mut stream: TcpStream, registry: PeerRegistry) {
     let mut node_id: Option<Uuid> = None;
@@ -171,4 +175,25 @@ pub fn verify_unique_name(registry: &PeerRegistry, name: &str) -> bool {
         Ok(map) => !map.iter().any(|record| record.node.name == name),
         Err(_) => false,
     }
+}
+
+// Disconnect from the server, mark all nodes as disconnected, and gracefully shutdown
+pub fn disconnect_server(registry: &PeerRegistry) {
+    // Mark all nodes as disconnected
+    match registry.lock() {
+        Ok(mut map) => {
+            for record in map.iter_mut() {
+                record.status = ConnectionStatus::Disconnected;// change the status to disconnected 
+                println!("Node {} marked as disconnected", record.node.id);
+            }
+            println!("Server disconnected all nodes marked as disconnected");
+        }
+        Err(e) => {
+            eprintln!("Failed to acquire lock on registry: {}", e);
+        }
+    }
+    
+    // Gracefully shutdown the server process (equivalent to Ctrl+C)
+    println!("Shutting down server");
+    std::process::exit(0); // ctrl+c
 }
