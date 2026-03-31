@@ -1,7 +1,8 @@
+use super::bundleManager::BundleManager;
 use super::epidemic::NetworkGraph;
 use super::model::Bundle;
-use crate::network::server::Server;
 use crate::network::client::send_bundle;
+use crate::network::server::Server;
 use crate::routing::bundleManager;
 use crate::routing::model::BundleKind;
 use pathfinding::directed::dijkstra::dijkstra;
@@ -14,13 +15,18 @@ use uuid::Uuid;
 pub struct RoutingEngine {
     pub node_id: Uuid,
     pub graph: NetworkGraph,
-    pub server : Server,
-    pub bundle_manager : BundleManager
+    pub server: Server,
+    pub bundle_manager: BundleManager,
 }
 
 impl RoutingEngine {
-    pub fn new(node_id : uuid) -> Self{
-        RoutingEngine { node_id: node_id, graph: NetworkGraph::new(), server: Server::new(), bundle_manager: bundleManager::new() }
+    pub fn new(node_id: Uuid) -> Self {
+        RoutingEngine {
+            node_id: node_id,
+            graph: NetworkGraph::new(),
+            server: Server::new(),
+            bundle_manager: BundleManager::new(node_id),
+        }
     }
 
     // Summary vector management
@@ -40,33 +46,29 @@ impl RoutingEngine {
     }
 
     // Dijkstra to find next hop
-    pub fn find_next_hop(&self, destination: Uuid) -> Option<Uuid> {
-        let (path, _) = dijkstra(
-            &self.node_id,
-            |node| self.graph.neighbors(node),
-            |node| *node == destination,
-        )?;
-        path.get(1).copied()
-    }
+    // pub fn find_next_hop(&self, destination: Uuid) -> Option<Uuid> {
+    //     let (path, _) = dijkstra(
+    //         &self.node_id,
+    //         |node| self.graph.neighbors(node),
+    //         |node| *node == destination,
+    //     )?;
+    //     path.get(1).copied()
+    // }
+
+    // TODO ; should be replaced with simple epidemic propagation
 
     // Main routing decision
-    pub async fn route_bundle(
-        &self,
-        bundle: &mut Bundle,
-        retry_interval: Duration,
-    ) {
-
-
+    pub async fn route_bundle(&self, bundle: &mut Bundle, retry_interval: Duration) {
         if matches!(bundle.kind, BundleKind::Ack { .. }) {
             if (bundle.source.id == self.node_id) {
-                bundle_manager.delete_bundle(bundle.id);
+                self.bundle_manager.delete_bundle(bundle.id);
                 return;
             }
 
-            bundle_manager.handle_incoming_ack(bundle);
+            self.bundle_manager.handle_incoming_ack(bundle);
             // Call the network layer
-            source = get_node(self.node_id);
-            send_bundle(source, bundle.clone());
+            let source = get_node(self.node_id);
+            send_bundle(source, bundle);
             return;
         }
 
@@ -74,8 +76,8 @@ impl RoutingEngine {
         if self.node_id == bundle.destination.id {
             bundle.shipment_status = super::model::MsgStatus::Delivered;
             let ack = Bundle::new_ack(bundle);
-            bundle_manager.save_bundle(&ack);
-            bundle_manager.delete_bundle(bundle.id);
+            self.bundle_manager.save_bundle(&ack);
+            self.bundle_manager.delete_bundle(bundle.id);
             // Call the network layer
             // for peer in network.get_connected_peers() {
             //     network.send_bundle(peer, &ack);
@@ -86,21 +88,22 @@ impl RoutingEngine {
         // Check if TTL expired
         if bundle.is_expired() {
             bundle.shipment_status = super::model::MsgStatus::Expired;
-            bundle_manager.delete_bundle(bundle.id);
+            self.bundle_manager.delete_bundle(bundle.id);
             return;
         }
 
         // Find next hop if not we stay here
+        // TODO : repalce find_next_hop(djikstra) with the new epidemic propagation
         let Some(next_hop) = self.find_next_hop(bundle.destination.id) else {
             bundle.shipment_status = super::model::MsgStatus::Pending;
-            bundle_manager.save_bundle(bundle);
-            self.forward_loop(bundle_manager, retry_interval).await;
+            self.bundle_manager.save_bundle(bundle);
+            self.forward_loop(self.bundle_manager, retry_interval).await;
             return;
         };
 
         // next hop found and we want to send to it missing bundles
         bundle.shipment_status = super::model::MsgStatus::InTransit;
-        let local_sv = self.get_summary_vector(bundle_manager);
+        let local_sv = self.get_summary_vector(self.bundle_manager);
         // let peer_sv = network.get_peer_summary_vector(next_hop);
         // let to_forward = self.anti_entropy(&local_sv, &peer_sv);
         // call for network layer
