@@ -9,8 +9,6 @@ use uuid::Uuid;
 
 
 fn main() {
-    // creer le,ficheir de storage automatiquement au lancer de l'app
-
     test_protobuf();
 }
 
