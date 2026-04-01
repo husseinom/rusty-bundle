@@ -53,6 +53,8 @@ impl RoutingEngine {
     }
 
     pub async fn route_bundle(&mut self, bundle: &mut Bundle) {
+        self.bundle_manager.save_bundle(bundle);
+
         if matches!(bundle.kind, BundleKind::Ack { .. }) {
             if bundle.source.id == self.node_id {
                 self.bundle_manager.delete_bundle(bundle.id);

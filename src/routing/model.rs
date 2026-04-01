@@ -31,16 +31,6 @@ impl Node {
             routing_engine: Some(RoutingEngine::new(new_id, peers)),
         }
     }
-
-    pub fn main(&self, bundle: &Bundle) {
-        connect_to_server(self.clone()); // TODO NEKES AWAIT
-        // TODO To be called only wheb we want to send
-        if let Some(routing_engine) = &self.routing_engine {
-            // NOTE: route_bundle is async, needs to be called in an async context
-            // TODO: Implement async handling here
-            // routing_engine.route_bundle(bundle).await;
-        }
-    }
 }
 
 // fot the MsgStatus we use an enumeration to represent the different status of the bundle during its lifecycle

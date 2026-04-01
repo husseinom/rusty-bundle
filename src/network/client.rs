@@ -11,7 +11,7 @@ use std::time::Duration;
 use uuid::Uuid;
 
 pub fn connect_to_server(node: Node) -> bool {
-    let address = format!("{}:{}", node.address, node.port);
+    let address = "127.0.0.1:8080";
     match connect_with_retry(&address, 3, 2) {
         Some(mut stream) => {
             println!("Connecté à {}", address);
