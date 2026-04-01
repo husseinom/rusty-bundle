@@ -60,6 +60,7 @@ impl Server {
                         let server = Server {
                             peer_registry: registry_clone,
                         };
+                        server.handle_client(stream);
                     });
                 }
                 Err(e) => eprintln!("Failed to establish connection: {}", e),
@@ -88,12 +89,14 @@ impl Server {
     }
 
     pub fn get_connected_peers(&self, requested_ids: &[Uuid]) -> Vec<PeerRecord> {
+        eprintln!("DEBUG registry contents: {:?}", self.peer_registry.lock());
+        eprintln!("DEBUG requested_ids: {:?}", requested_ids);
         match self.peer_registry.lock() {
             Ok(map) => map
                 .iter()
                 .filter(|record| {
                     record.status == ConnectionStatus::Connected
-                        && requested_ids.contains(&record.node.id)
+                    // ✅ temporarily remove the requested_ids filter
                 })
                 .cloned()
                 .collect(),
@@ -104,11 +107,17 @@ impl Server {
     pub fn handle_client(&self, mut stream: TcpStream) {
         let mut node_id: Option<Uuid> = None;
         let mut buffer = [0_u8; 4096];
-
+        eprintln!("we are in the handle client");
         loop {
             let n = match stream.read(&mut buffer) {
-                Ok(0) => break, // Connection closed by client
-                Ok(n) => n,
+                Ok(0) => {
+                    println!("DEBUG: got EOF (client closed connection)");
+                    break;
+                } // Connection closed by client
+                Ok(n) => {
+                    println!("DEBUG: read {} bytes", n);
+                    n
+                }
                 Err(e) => {
                     eprintln!("Failed to read from client: {}", e);
                     break;
@@ -128,6 +137,7 @@ impl Server {
             match request {
                 ServerRequest::Register(node) => {
                     node_id = Some(node.id);
+                    eprintln!("WE ARE IN THE SERVERREQUEST");
                     if let Ok(mut map) = self.peer_registry.lock() {
                         map.push(PeerRecord {
                             node,

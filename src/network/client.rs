@@ -1,6 +1,6 @@
 use crate::network::bundle::ProtobufBundle;
 use crate::network::protobuf::{deserialize, serialize};
-use crate::network::server::ServerRequest;
+use crate::network::server::{ServerRequest, ServerResponse};
 use crate::routing::model::{Bundle, BundleKind, Node};
 use crate::routing::RoutingEngine;
 use serde_json;
@@ -10,32 +10,36 @@ use std::thread;
 use std::time::Duration;
 use uuid::Uuid;
 
-pub fn connect_to_server(node: Node) -> bool {
+pub fn connect_to_server(node: Node) -> Option<TcpStream> {
     let address = "127.0.0.1:8080";
     match connect_with_retry(&address, 3, 2) {
         Some(mut stream) => {
-            println!("Connecté à {}", address);
-
-            let message =
-                serde_json::to_string(&ServerRequest::Register(node)).unwrap_or_default();
-
-            match stream.write_all(message.as_bytes()) {
-                Ok(_) => {
-                    println!("Données envoyées au serveur !");
-                    true
-                }
-                Err(e) => {
-                    println!("Erreur d'envoi: {}", e);
-                    false
-                }
+            let message = serde_json::to_string(&ServerRequest::Register(node)).unwrap_or_default();
+            println!("DEBUG client: sending register message");
+            if stream.write_all(message.as_bytes()).is_err() {
+                return None;
             }
+            // ✅ Set a timeout so read doesn't block forever
+            stream.set_read_timeout(Some(std::time::Duration::from_secs(2))).ok();
+
+            let mut buf = [0u8; 1024];
+            match stream.read(&mut buf) {
+                Ok(n) => println!("DEBUG client: got ack ({} bytes)", n),
+                Err(e) => println!("DEBUG client: ack read timed out or failed: {}", e),
+                // Either way we continue — ack is best-effort
+            }
+
+            // ✅ Remove the timeout so the persistent connection doesn't time out later
+            stream.set_read_timeout(None).ok();
+
+            println!("DEBUG client: returning stream");
+            Some(stream)
         }
-        None => {
-            println!("Erreur: Impossible de se connecter au serveur après plusieurs tentatives.");
-            false
-        }
+        None => None,
     }
 }
+
+
 
 //Connection Retry & Failure Handling
 // A helper function that attempts to establish a TCP connection multiple times
@@ -163,7 +167,8 @@ pub fn receive_bundle(stream: &mut TcpStream) -> Option<Bundle> {
 pub fn request_peer_sv(
     self_id: Uuid,
     destination: String,
-) -> Result<Vec<Uuid>, Box<dyn std::error::Error>> {// askiing another peer a qestion " what bundles do u have "
+) -> Result<Vec<Uuid>, Box<dyn std::error::Error>> {
+    // askiing another peer a qestion " what bundles do u have "
     let mut stream = match connect_with_retry(&destination, 3, 2) {
         Some(s) => s,
         None => return Err(format!("could not reach peer {}", destination).into()),

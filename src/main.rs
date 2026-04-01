@@ -7,6 +7,7 @@ mod storage;
 use clap::Parser;
 use cli::cli::Cli;
 use cli::handler::handle_command;
+use network::client::connect_to_server;
 use network::server::Server;
 use std::io::{self, Write};
 
@@ -27,14 +28,14 @@ async fn main() {
         return;
     }
 
-    // If subcommands are passed, run one-shot mode.
+    // One-shot mode: subcommands passed directly on the command line.
     if args.len() > 1 {
         let cli = Cli::parse();
         handle_command(cli.command, &mut nodes).await;
         return;
     }
 
-    // Interactive mode keeps node state across many commands in one process.
+    // Interactive mode: keeps node state across many commands in one process.
     println!("Entering interactive mode. Type 'help' for examples, 'exit' to quit.");
     loop {
         print!("ws> ");
@@ -69,7 +70,6 @@ async fn main() {
             continue;
         }
 
-        // Build argv for clap: binary_name + tokens from input line.
         let argv = std::iter::once("WhatSpace".to_string())
             .chain(input.split_whitespace().map(|s| s.to_string()))
             .collect::<Vec<String>>();
@@ -79,4 +79,5 @@ async fn main() {
             Err(e) => println!("{}", e),
         }
     }
+    // _registry_stream drops here — server correctly marks node as disconnected
 }

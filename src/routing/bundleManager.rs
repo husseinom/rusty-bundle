@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::routing::model::{Bundle, BundleKind};
 use crate::storage::StorageLayer;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,10 +12,10 @@ pub struct BundleManager {
 impl BundleManager {
     // Function to get bundles stored at the node, used by the engine to get the summary vector
 
-    pub fn new(node_id: Uuid) -> Self {
+    pub fn new(node_id: Uuid, name: String) -> Self {
         BundleManager {
             node_id,
-            storage: StorageLayer::new("./bundles".to_string(), 10),
+            storage: StorageLayer::new(format!("./bundles/{}", name), 2),
         }
     }
 

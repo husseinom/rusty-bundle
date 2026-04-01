@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 
-use uuid::Uuid;
-
 use crate::cli::cli::{NodeCommands, PeerCommands};
 use crate::network::client::connect_to_server;
 use crate::routing::model::{Bundle, BundleKind, Node};
+use std::net::TcpStream;
+use std::sync::Mutex;
+use uuid::Uuid;
+
+static REGISTRY_STREAM: Mutex<Option<TcpStream>> = Mutex::new(None);
 
 fn find_node<'a>(nodes: &'a [Node], name: &str) -> &'a Node {
     nodes.iter().find(|n| n.name == name).unwrap_or_else(|| {
@@ -50,13 +53,13 @@ pub async fn handle_command(command: NodeCommands, nodes: &mut Vec<Node>) {
 
         NodeCommands::Start { name, server } => {
             let node = find_node(nodes, &name);
-
-            // just register with the registry server
-            let connected = connect_to_server(node.clone());
-            if !connected {
+            let stream = connect_to_server(node.clone());
+            if stream.is_none() {
                 eprintln!("Failed to connect node {} to server", node.name);
                 return;
             }
+            // ✅ Store in static so it never drops
+            *REGISTRY_STREAM.lock().unwrap() = stream;
             println!("Node {} registered with server {}", node.name, server);
         }
 

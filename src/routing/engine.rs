@@ -14,12 +14,12 @@ pub struct RoutingEngine {
 }
 
 impl RoutingEngine {
-    pub fn new(node_id: Uuid, peers: Vec<Uuid>) -> Self {
+    pub fn new(node_id: Uuid, peers: Vec<Uuid>, name: String) -> Self {
         RoutingEngine {
             node_id,
             peers,
             server: Server::new(),
-            bundle_manager: BundleManager::new(node_id),
+            bundle_manager: BundleManager::new(node_id, name),
         }
     }
 
@@ -91,26 +91,36 @@ impl RoutingEngine {
         }
 
         // propagate to all my peers
+        eprintln!("WE HEREEEEEE");
         let local_sv = self.get_summary_vector(&self.bundle_manager);
+        eprintln!("WE HEREEEEEE");
         let pending_bundles: Vec<Bundle> = local_sv
             .into_iter()
             .filter(|b| b.shipment_status == super::model::MsgStatus::Pending)
             .collect();
-        for connected_peer in self.server.get_connected_peers(&self.peers) {
+        let connected_peers = self.server.get_connected_peers(&self.peers);
+        
+        eprintln!("WE HEREEEEEE");
+
+        for connected_peer in connected_peers {
             let peer_sv = self.get_peer_summary_vector(
                 connected_peer.node.address.as_str(),
                 connected_peer.node.port,
             );
+            eprintln!("WE HEREEEEEE");
             // Then compare against what the peer already has
             let to_forward = self.anti_entropy(&pending_bundles, &peer_sv);
-            let destination_adress = format!(
+            eprintln!("WE HEREEEEEE");
+            let destination_adress: String = format!(
                 "{}:{}",
                 connected_peer.node.address, connected_peer.node.port
             );
+            eprintln!("WE HEREEEEEE");
             for bundle in to_forward {
                 send_bundle(self.node_id, bundle, destination_adress.clone());
             }
         }
+        eprintln!("WE HEREEEEEE");
         bundle.shipment_status = super::model::MsgStatus::InTransit;
     }
 }

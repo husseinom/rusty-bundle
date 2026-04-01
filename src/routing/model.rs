@@ -28,7 +28,7 @@ impl Node {
             address: address.to_string(),
             port,
             peers: peers.clone(),
-            routing_engine: Some(RoutingEngine::new(new_id, peers)),
+            routing_engine: Some(RoutingEngine::new(new_id, peers, name.to_string())),
         }
     }
 }
