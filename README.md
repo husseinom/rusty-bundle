@@ -199,7 +199,6 @@ This opens interactive mode with the predefined demo nodes:
 - `alice` on `127.0.0.1:9001`
 - `bob` on `127.0.0.1:9002`
 - `carol` on `127.0.0.1:9003`
-- `syrine` on `127.0.0.1:9004`
 
 ### 4. Run a node
 
@@ -214,7 +213,6 @@ You can start additional demo nodes the same way:
 ```text
 start bob --server 127.0.0.1:8080
 start carol --server 127.0.0.1:8080
-start syrine --server 127.0.0.1:8080
 ```
 
 Each started node opens its peer listener on its configured local port.
