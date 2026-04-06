@@ -9,6 +9,7 @@ use uuid::Uuid;
 pub struct RoutingEngine {
     pub node_id: Uuid,
     pub peers: Vec<Uuid>,
+    pub registry_address: String,
     pub server: Server,
     pub bundle_manager: BundleManager,
 }
@@ -18,6 +19,7 @@ impl RoutingEngine {
         RoutingEngine {
             node_id,
             peers,
+            registry_address: "127.0.0.1:9100".to_string(),
             server: Server::new(),
             bundle_manager: BundleManager::new(node_id, name),
         }
@@ -54,7 +56,13 @@ impl RoutingEngine {
 
     pub async fn route_bundle(&mut self, bundle: &mut Bundle) {
         if matches!(bundle.kind, BundleKind::Ack { .. }) {
-            let connected_peers: Vec<_> = get_connected_peers_from_server(&self.peers)
+            let mut requested_ids = self.peers.clone(); 
+            if !requested_ids.contains(&bundle.destination.id) {
+                requested_ids.push(bundle.destination.id); // force-include ACK destination so backward route can reach original sender
+            }
+
+            let connected_peers: Vec<_> =
+                get_connected_peers_from_server(&self.registry_address, &requested_ids)
                 .into_iter()
                 .filter(|p| p.node.id != self.node_id)
                 .collect();
@@ -105,7 +113,13 @@ impl RoutingEngine {
             return;
         }
 
-        let connected_peers: Vec<_> = get_connected_peers_from_server(&self.peers)
+        let mut ack_requested_ids = self.peers.clone();
+        if !ack_requested_ids.contains(&bundle.source.id) {
+            ack_requested_ids.push(bundle.source.id);
+        }
+
+        let connected_peers: Vec<_> =
+            get_connected_peers_from_server(&self.registry_address, &ack_requested_ids)
             .into_iter()
             .filter(|p| p.node.id != self.node_id)
             .collect();
