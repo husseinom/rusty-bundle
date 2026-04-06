@@ -140,7 +140,7 @@ Whatspace/
 │   │   ├── client.rs
 │   │   ├── bundle.proto
 │   │   └── protobuf.rs
-
+|   |
 │   ├── storage/
 │   │   ├── mod.rs
 │   │   └── storage.rs
@@ -152,7 +152,7 @@ Whatspace/
 │   │   ├── model.rs
 │   │   ├── scf.rs
 │   │   └── engine.rs
-
+|   |
 │   └── cli/
 │       ├── mod.rs
 │       ├── handlers.rs
